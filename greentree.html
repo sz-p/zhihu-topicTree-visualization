@@ -1,0 +1,182 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Rect - Partition</title>
+</head>
+
+<style>
+    .node_text {
+        font-size: 10px;
+        text-anchor: middle;
+    }
+
+    .link {
+        fill: none;
+        stroke: #ccc;
+        stroke-width: 1.5px;
+    }
+
+    .g-marker.g-dem {
+        fill: #00ff00;
+    }
+    .g-marker.g-rep {
+        fill: #008000;
+    }
+</style>
+
+<body>
+    <script src="lib/d3.js"></script>
+    <script src="lib/GetScreenSize.js"></script>
+
+    <script>
+        size = GSS();
+
+        var margin = { top: 85, right: 10, bottom: 40, left: 60 },
+            width = size.offsetWidth - margin.left - margin.right,
+            height = size.offsetHeight - margin.top - margin.bottom;
+
+        var color = d3.scale.category20();
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        var partition = d3.layout.partition()
+            .sort(null)
+            .size([width, height])
+            .value(function (d) { return parseInt(d.value); });
+
+        var diagonal = d3.svg.diagonal()
+            .target(function (d) {
+                return d.target;
+            })
+            .source(function (d) {
+                return d.source;
+            });
+
+        svg.append("defs").selectAll("marker")
+            .data(["dem", "rep", "dem-active", "rep-active"])
+            .enter().append("marker")
+            .attr("id", function (d) { return "g-arrowhead-" + d; })
+            .attr("viewBox", "-.1 -5 10 10")
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M-.1,-4L3.9,0L-.1,4")
+            .attr("class", function (d) { return "g-marker g-" + d; });
+
+        function appendText(d) {
+            if (d) {
+                var text = svg.append("text")
+                    .text(function () { return d.name })
+                    .attr("transform", function () { return "translate(" + d.x + "," + (d.y - 20) + ")"; })
+                    .attr("text-anchor", "middle")
+                appendText(d.parent);
+            }
+        }
+        function appendNode(d) {
+            if (d) {
+                svg.append("circle")
+                    .attr("r", function () {
+                        return d.dx / 40
+                    })
+                    .attr('fill', function () {
+                        return '#008000'
+                    })
+                    .attr('class', function () {
+                        if (d.id != 19776749) {
+                            return "nodes"
+                        }
+                    })
+                    .attr("stroke", function () {
+                        return "#ffffff"
+                    })
+                    .attr("stroke-width", function () {
+                        return 1.5
+                    })
+                    .attr("transform", function () { return "translate(" + d.x + "," + d.y + ")"; })
+                appendNode(d.parent);
+            }
+        }
+        function appendActive(d) {
+            if (d.parent) {
+                document.getElementById(d.id).style.strokeWidth = parseFloat(document.getElementById(d.id).style.strokeWidth) + 5;
+                document.getElementById(d.id).style.stroke = "rgb(0,128,0)";
+                document.getElementById(d.id).setAttribute('marker-end',"url(#g-arrowhead-rep)")
+                appendActive(d.parent)
+            }
+
+        }
+        function removeNode() {
+            svg.selectAll(".nodes").remove();
+        }
+        function removeText() {
+            svg.selectAll("text").remove();
+        }
+        function removeActive(d) {
+            if (d.parent) {
+                document.getElementById(d.id).style.strokeWidth = parseFloat(document.getElementById(d.id).style.strokeWidth) - 5;
+                document.getElementById(d.id).style.stroke = "rgb(0,255,0)";
+                document.getElementById(d.id).setAttribute('marker-end',"url(#g-arrowhead-dem)")
+                removeActive(d.parent)
+            }
+        }
+        function mouseover(d) {
+            appendActive(d.target);
+
+            appendNode(d.target);
+            appendText(d.target);
+        }
+
+        function mouseout(d) {
+            removeNode();
+            removeText();
+            removeActive(d.target);
+        }
+
+        function activate(d, active) {
+            d.active = active;
+            d.parent && activate(d.parent, active);
+        }
+
+        d3.json("Data/Data.json", function (error, root) {
+
+            if (error)
+                console.log(error);
+
+            var nodes = partition.nodes(root);
+
+            nodes.forEach(function (d) {
+                d.x = d.x + d.dx / 2
+                d.y = d.depth * 125 + d.dy / 2
+            });
+
+            var links = partition.links(nodes);
+
+            var link = svg.selectAll(".link")
+                .data(links.filter(function (d) { if (d.target.value > 10000) return d }))
+                .enter()
+                .append("path")
+                .attr('id', function (d) { return d.target.id })
+                .on("mouseover", mouseover)
+                .on("mouseout", mouseout)
+                .attr("class", "link")
+                .attr("d", diagonal)
+                .style('stroke-width', function (d) {
+                    return d.target.dx / 20
+                })
+                .style('stroke', function (d, i) {
+                    return '#00ff00';
+                })
+                .attr('marker-end', function (d) {
+                    return 'url(#g-arrowhead-dem)';
+                });
+            appendNode(nodes[0]);
+        });
+    </script>
+
+</body>
+
+</html>
